@@ -35,12 +35,16 @@ module.exports = class SpeedMeasurePlugin {
     );
   }
 
+  /**
+   * 对 webpack 配置进行包装处理
+   */  
   wrap(config) {
     if (this.options.disable) return config;
     if (Array.isArray(config)) return config.map(this.wrap);
     if (typeof config === "function")
       return (...args) => this.wrap(config(...args));
 
+    // 包装插件
     config.plugins = (config.plugins || []).map((plugin) => {
       const pluginName =
         Object.keys(this.options.pluginNames || {}).find(
@@ -51,6 +55,7 @@ module.exports = class SpeedMeasurePlugin {
       return new WrappedPlugin(plugin, pluginName, this);
     });
 
+    // 包装优化器中的插件
     if (config.optimization && config.optimization.minimizer) {
       config.optimization.minimizer = config.optimization.minimizer.map(
         (plugin) => {
@@ -59,10 +64,12 @@ module.exports = class SpeedMeasurePlugin {
       );
     }
 
+    // 在模块中预处理loader
     if (config.module && this.options.granularLoaderData) {
       config.module = prependLoader(config.module);
     }
 
+    // 将该插件也添加到配置中
     if (!this.smpPluginAdded) {
       config.plugins = config.plugins.concat(this);
       this.smpPluginAdded = true;
@@ -71,6 +78,9 @@ module.exports = class SpeedMeasurePlugin {
     return config;
   }
 
+  /**
+   * 生成loader构建比较的报告
+   */  
   generateLoadersBuildComparison() {
     const objBuildData = { loaderInfo: [] };
     const loaderFile = this.options.compareLoadersBuild.filePath;
@@ -86,6 +96,7 @@ module.exports = class SpeedMeasurePlugin {
       throw new Error("No output found!");
     }
 
+    // 读取之前的构建信息
     const buildDetailsFile = fs.existsSync(loaderFile)
       ? fs.readFileSync(loaderFile)
       : "[]";
@@ -94,6 +105,7 @@ module.exports = class SpeedMeasurePlugin {
     const buildNo =
       buildCount > 0 ? buildDetails[buildCount - 1]["buildNo"] + 1 : 1;
 
+    // 创建当前构建的loader信息
     // create object format of current loader and write in the file
     outputObj.build.forEach((loaderObj) => {
       const loaderInfo = {};
@@ -105,6 +117,7 @@ module.exports = class SpeedMeasurePlugin {
           : "";
       loaderInfo[`Comparison`] = "";
 
+      // 获取与之前构建的loader耗时进行比较的信息
       // Getting the comparison from the previous build by default only
       // in case if build data is more then one
       if (buildCount > 0) {
@@ -124,6 +137,7 @@ module.exports = class SpeedMeasurePlugin {
               buildDetails[prevBuildIndex]["loaderInfo"][y]["Time"];
             const savedTime = previousBuildTime > loaderObj.activeTime;
 
+            // 比较loader耗时，并标记为更快或更慢
             loaderInfo[`Comparison`] = `${savedTime ? "-" : "+"}${Math.abs(
               loaderObj.activeTime - previousBuildTime
             )}ms | ${savedTime ? "(slower)" : "(faster)"}`;
@@ -134,10 +148,12 @@ module.exports = class SpeedMeasurePlugin {
       objBuildData["loaderInfo"].push(loaderInfo);
     });
 
+    // 将当前构建的loader信息写入文件
     buildDetails.push({ buildNo, loaderInfo: objBuildData["loaderInfo"] });
 
     fs.writeFileSync(loaderFile, JSON.stringify(buildDetails));
 
+    // 打印loader构建比较的报告
     for (let i = 0; i < buildDetails.length; i++) {
       const outputTable = [];
       console.log("--------------------------------------------");
@@ -159,6 +175,9 @@ module.exports = class SpeedMeasurePlugin {
     }
   }
 
+  /**
+   * 根据配置返回输出的报告
+   */  
   getOutput() {
     const outputObj = {};
     if (this.timeEventData.misc)
@@ -181,6 +200,9 @@ module.exports = class SpeedMeasurePlugin {
     );
   }
 
+  /**
+   * 添加时间事件
+   */  
   addTimeEvent(category, event, eventType, data = {}) {
     const allowFailure = data.allowFailure;
     delete data.allowFailure;
@@ -195,6 +217,7 @@ module.exports = class SpeedMeasurePlugin {
       data.start = curTime;
       eventList.push(data);
     } else if (eventType === "end") {
+      // 查找匹配的事件，根据 ID 或名称匹配
       const matchingEvent = eventList.find((e) => {
         const allowOverwrite = !e.end || !data.fillLast;
         const idMatch = e.id !== undefined && e.id === data.id;
@@ -219,12 +242,19 @@ module.exports = class SpeedMeasurePlugin {
     }
   }
 
+  /**
+   * 将speed-measure-plugin插件应用于 webpack
+   * @param {*} compiler
+   * @returns {*}
+   */  
   apply(compiler) {
     if (this.options.disable) return;
 
+    // 监听编译开始事件
     tap(compiler, "compile", () => {
       this.addTimeEvent("misc", "compile", "start", { watch: false });
     });
+    // 监听编译完成事件
     tap(compiler, "done", () => {
       clear();
       this.addTimeEvent("misc", "compile", "end", { fillLast: true });
@@ -233,6 +263,7 @@ module.exports = class SpeedMeasurePlugin {
       chalk.enabled = !outputToFile;
       const output = this.getOutput();
       chalk.enabled = true;
+      // 将报告输出到文件
       if (outputToFile) {
         const writeMethod = fs.existsSync(this.options.outputTarget)
           ? fs.appendFileSync
@@ -242,21 +273,32 @@ module.exports = class SpeedMeasurePlugin {
           smpTag() + "Outputted timing info to " + this.options.outputTarget
         );
       } else {
+        // 输出报告
         const outputFunc = this.options.outputTarget || console.log;
         outputFunc(output);
       }
 
       if (this.options.compareLoadersBuild)
+        // 生成loader构建比较的报告
         this.generateLoadersBuildComparison();
 
       this.timeEventData = {};
     });
 
+    // 监听编译阶段事件
     tap(compiler, "compilation", (compilation) => {
+      // 监听normal-module-loader事件，记录loader的耗时
+      // 注：webpack5已废弃
       tap(compilation, "normal-module-loader", (loaderContext) => {
         loaderContext[NS] = this.provideLoaderTiming;
       });
 
+      // TODO: webpack5以上
+      // NormalModule.getCompilationHooks(compilation).loader.tap("SpeedMeasureWebpackPlugin", (loaderContext) => {
+      //   loaderContext[NS] = this.provideLoaderTiming;
+      // });
+
+      // 监听构建模块事件，记录loader构建的开始
       tap(compilation, "build-module", (module) => {
         const name = getModuleName(module);
         if (name) {
@@ -268,6 +310,8 @@ module.exports = class SpeedMeasurePlugin {
         }
       });
 
+      // 监听成功构建模块事件，记录loader构建的结束
+      // TODO: speed-measure-plugin只能统计出css-loader style-loader等一起转化的时间？ 错，都可以统计，看normal-module-loader
       tap(compilation, "succeed-module", (module) => {
         const name = getModuleName(module);
         if (name) {
@@ -280,6 +324,9 @@ module.exports = class SpeedMeasurePlugin {
     });
   }
 
+  /**
+   * 提供loader的耗时信息
+   */  
   provideLoaderTiming(info) {
     const infoData = { id: info.id };
     if (info.type !== "end") {

@@ -1,3 +1,8 @@
+/**
+ * speed-measure-plugin配套的loader
+ * 会自动加在所有loader列表前面
+ * 它会hack require方法，如果require某一个loader，会给loader加上时间记录的逻辑
+ */
 const path = require("path");
 const fs = require("fs");
 const { hackWrapLoaders } = require("./utils");
@@ -19,6 +24,7 @@ module.exports.pitch = function () {
     .map((l) => l.path)
     .filter((l) => !l.includes("speed-measure-webpack-plugin"));
 
+  // hack require方法，用于修改loader代码内容
   // Hack ourselves to overwrite the `require` method so we can override the
   // loadLoaders
   hackWrapLoaders(loaderPaths, (loader, path) => {
@@ -39,7 +45,7 @@ module.exports.pitch = function () {
             };
           }.bind(this),
         });
-
+        // 统计loader开始转化时间 
         callback({
           module,
           loaderName,

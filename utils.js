@@ -108,6 +108,7 @@ const prependLoader = (rules) => {
 
   if (rules.use) {
     if (!Array.isArray(rules.use)) rules.use = [rules.use];
+    // 插入Loader
     rules.use.unshift("speed-measure-webpack-plugin/loader");
   }
 
@@ -131,13 +132,20 @@ const prependLoader = (rules) => {
 };
 module.exports.prependLoader = prependLoader;
 
+/**
+ * @param {*} loaderPaths 需要hack的loader
+ * @param {*} callback 用于添加时间记录逻辑
+ * @returns {*} hack后的Loader内容
+ */
 module.exports.hackWrapLoaders = (loaderPaths, callback) => {
   const wrapReq = (reqMethod) => {
     return function () {
       const ret = reqMethod.apply(this, arguments);
+      // 若使用require引入loaders列表中的loader
       if (loaderPaths.includes(arguments[0])) {
         if (ret.__smpHacked) return ret;
         ret.__smpHacked = true;
+        // callback包了一层时间记录的逻辑
         return callback(ret, arguments[0]);
       }
       return ret;
