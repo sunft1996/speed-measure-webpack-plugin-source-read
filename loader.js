@@ -16,6 +16,9 @@ const getLoaderName = (path) => {
   const nodeModuleName = /\/node_modules\/([^\/]+)/.exec(standardPath);
   return (nodeModuleName && nodeModuleName[1]) || "";
 };
+// pitch执行顺序：loaderA、loaderB、loaderC
+// loaderC.pitch => loaderB.pitch => loaderA.pitch
+// loaderA.normal => loaderB.normal => loaderC.normal
 
 module.exports.pitch = function () {
   const callback = this[NS];
@@ -24,7 +27,7 @@ module.exports.pitch = function () {
     .map((l) => l.path)
     .filter((l) => !l.includes("speed-measure-webpack-plugin"));
 
-  // hack require方法，用于修改loader代码内容
+  // hack loader，给所有Loader加上时间记录逻辑
   // Hack ourselves to overwrite the `require` method so we can override the
   // loadLoaders
   hackWrapLoaders(loaderPaths, (loader, path) => {
@@ -52,7 +55,9 @@ module.exports.pitch = function () {
           id: loaderId,
           type: "start",
         });
+        // 执行Loader
         const ret = func.apply(almostThis, arguments);
+        // 统计Loader结束时间
         callback({
           id: loaderId,
           type: "end",
