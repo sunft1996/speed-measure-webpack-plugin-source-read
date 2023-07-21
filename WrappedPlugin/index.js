@@ -34,8 +34,11 @@ const genWrappedFunc = ({
   // to complete compilation. If this gets invoked and not the subsequent
   // call, then our data will be inaccurate, sadly
   addEndEvent();
+  // 我的优化项一：
   // 对函数的每个参数 进行proxy
   const normalArgMap = a => wrap(a, pluginName, smp);
+  // 对hooks tap的参数不要生成proxy，比如compilation
+  // const normalArgMap = a => a
 
   // 根据函数不同的类型包装函数
   let ret;
@@ -269,12 +272,20 @@ const wrap = (orig, pluginName, smp, addEndEvent) => {
           }
         }
 
+        // compiler.webpack()、compiler.logger()等 
         if (typeof raw === "function") {
           const ret = raw.bind(proxy);
           if (property === "constructor")
             Object.defineProperty(ret, "name", {
               value: raw.name,
             });
+
+          // 我的优化项二：
+          // mini-css-extract-plugin中会调用 webpack()方法，如果使用以下方法，会导致webpack方法是一个proxy
+          // 而loader转化时，也会调用webpack()方法，这时候拿到的是原本的webpack方法，而之前使用wbepack proxy作为key设置了缓存
+          // 导致出错
+          // 因此我们最好只监听hooks，没人会把hooks作为缓存的key
+
           const funcProxy = new Proxy(ret, {
             get: (target, property) => {
               return raw[property];

@@ -64,7 +64,7 @@ module.exports = class SpeedMeasurePlugin {
       );
     }
 
-    // 在模块中预处理loader
+    // 只有开启了granularLoaderData，才会添加smp的loader去计算一个个Loader的耗时
     if (config.module && this.options.granularLoaderData) {
       config.module = prependLoader(config.module);
     }
@@ -305,8 +305,10 @@ module.exports = class SpeedMeasurePlugin {
           this.addTimeEvent("loaders", "build", "start", {
             name,
             fillLast: true,
+            // 记录Loader，可能会产生css-loader重复出现的情况
             loaders: getLoaderNames(module.loaders),
           });
+          console.log('module.loaders', module.loaders);
         }
       });
 
