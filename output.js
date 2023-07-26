@@ -138,17 +138,51 @@ module.exports.getPluginsOutput = (data) =>
     }, acc);
   }, {});
 
+/**
+ * @typedef {Object} BuildItem
+ * @property {string} name 模块路径：module.userRequest
+ * @property {number} loaders module.build触发时的module.loaders
+ * @property {string} start 开始转化时间
+ * @property {string} end 结束转化时间
+ * @property {string} fillLast 
+ */
+
+/**
+ * @typedef {Object} BuildSpecificItem
+ * @property {string} name 模块路径：loader context中的resourcePath，同个有可能会重复
+ * @property {number} id 
+ * @property {number} loader 负责转化的loader 
+ * @property {string} start 开始转化时间
+ * @property {string} end 结束转化时间
+ */
+
+/**
+ * @typedef {Object} DataObject
+ * @property {BuildItem[]} build - 所有module.build时记录的loader转化信息
+ * @property {BuildSpecificItem[]} `build-specific` - 所有单个loader转化的信息
+ */
+
+/**
+ * @param {DataObject} data
+ * @returns {*}
+ */
+
 module.exports.getLoadersOutput = (data) => {
+  // 按照Loaders分类
   const startEndsByLoader = groupBy("loaders", data.build);
   const allSubLoaders = data["build-specific"] || [];
 
   const buildData = startEndsByLoader.map((startEnds) => {
+    // 计算每组Loader的平均耗时
     const averages = getAverages(startEnds);
+    // 总耗时
     const activeTime = getTotalActiveTime(startEnds);
+    // 找到allSubLoaders中，转化过相同模块的 所有loader处理数据，并按照Loader分组
     const subLoaders = groupBy(
       "loader",
       allSubLoaders.filter((l) => startEnds.find((x) => x.name === l.name))
     );
+    // 计算subLoader中，各组loader的处理时长
     const subLoadersActiveTime = subLoaders.reduce((acc, loaders) => {
       acc[loaders[0].loader] = getTotalActiveTime(loaders);
       return acc;
@@ -158,6 +192,7 @@ module.exports.getLoadersOutput = (data) => {
       averages,
       activeTime,
       loaders: startEnds[0].loaders,
+      // 转化过相同模块的所有subLoader中，各组loader的处理时长
       subLoadersTime: subLoadersActiveTime,
       rawStartEnds: startEnds.sort(
         (a, b) => b.end - b.start - (a.end - a.start)

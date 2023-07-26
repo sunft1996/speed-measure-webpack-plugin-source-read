@@ -5,6 +5,13 @@ const isEqual = (x, y) =>
       y.every((yi) => x.includes(yi))
     : x === y;
 
+/**
+ * 由于webpack中存在异步loader，当模块转化时遇到异步阻塞时，webpack会继续转化其他模块
+ * 因此存在并发转化多个模块的情况
+ *
+ * @param {*} rangeList
+ * @returns {*}
+ */
 const mergeRanges = (rangeList) => {
   const mergedQueue = [];
   const inputQueue = [...rangeList];
@@ -89,6 +96,8 @@ module.exports.getAverages = (group) => {
 };
 
 module.exports.getTotalActiveTime = (group) => {
+  // 同一loader同一时间内可能会并发转化多个模块（webpack中的异步队列，遇到异步Loader会去转化另一个模块，等待异步完成再切换回来）
+  // 合并以上以上情况中的时间范围
   const mergedRanges = mergeRanges(group);
   return mergedRanges.reduce((acc, range) => acc + range.end - range.start, 0);
 };

@@ -36,14 +36,19 @@ module.exports.pitch = function () {
       function () {
         const loaderId = id++;
         const almostThis = Object.assign({}, this, {
+          // 重写this.async方法，loader中使用this.async告诉loader-runner是一个异步loader
+          // this.async会返回一个this.callback
           async: function () {
             const asyncCallback = this.async.apply(this, arguments);
 
+            // hack this.async中的this.callback
             return function () {
+              // 先记录时间
               callback({
                 id: loaderId,
                 type: "end",
               });
+              // 在调用this.callback
               return asyncCallback.apply(this, arguments);
             };
           }.bind(this),
