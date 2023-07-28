@@ -253,7 +253,7 @@ const wrap = (orig, pluginName, smp, addEndEvent) => {
             smp,
             getOrigConstrucName(target)
           ).bind(proxy);
-        // 调用compiler.hooks.tap
+        // 调用compiler.hooks.xxx.tap
         if (shouldWrap && property === "hooks")
           return wrapHooks(
             target,

@@ -1,3 +1,21 @@
+/**
+ * 耗时计算：
+ * 
+ * loader思路：
+ *  方法一：插件监听build-module、succeed-module hook，记录module、module.loaders、以及时间差；
+ *  方法二：
+ *      1. 插件监听normal-module-loader，在loader context挂载【时间记录函数】
+ *      2. 给配置中的所有loader前添加一个loader，在pitch方法中（第一个Loader的pitch一定会第一个执行），
+ *            hack require方法，如果require某一个loader，给当前loader加上时间记录的逻辑
+ * 
+ * plugin思路：
+ *  hack插件的apply方法，当组件调用apply绑定时，对compiler新建proxy，如果调用hooks.tap(callback)，给callback包裹时间记录的逻辑
+ *  缺点：对compiler以及它的很多属性都设置了proxy，导致一些plugin内部需要origin proxy时，拿到的都是proxy对象，造成bug，webpack5时尤其明显，因此不建议这种方案
+ * 
+ * 总时间 = done hook - compile hook
+ * 
+ */
+
 const path = require("path");
 const fs = require("fs");
 const chalk = require("chalk");
