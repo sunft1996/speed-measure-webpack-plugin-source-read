@@ -82,7 +82,7 @@ module.exports = class SpeedMeasurePlugin {
       );
     }
 
-    // 在模块中预处理loader
+    // 只有开启了granularLoaderData，才会添加smp的loader去计算一个个Loader的耗时
     if (config.module && this.options.granularLoaderData) {
       config.module = prependLoader(config.module);
     }
@@ -220,6 +220,8 @@ module.exports = class SpeedMeasurePlugin {
 
   /**
    * 添加时间事件
+   * 记录start时创建eventList
+   * 记录end时找到event，填写end时间
    */  
   addTimeEvent(category, event, eventType, data = {}) {
     const allowFailure = data.allowFailure;
@@ -318,13 +320,16 @@ module.exports = class SpeedMeasurePlugin {
 
       // 监听构建模块事件，记录loader构建的开始
       tap(compilation, "build-module", (module) => {
+        // module.userRequest
         const name = getModuleName(module);
         if (name) {
           this.addTimeEvent("loaders", "build", "start", {
             name,
             fillLast: true,
+            // 记录Loader，可能会产生css-loader重复出现的情况
             loaders: getLoaderNames(module.loaders),
           });
+          console.log('module.loaders', module.loaders);
         }
       });
 
@@ -343,12 +348,13 @@ module.exports = class SpeedMeasurePlugin {
   }
 
   /**
-   * 提供loader的耗时信息
+   * 提供单个loader的耗时信息，只有开启了granularLoaderData才会统计
    */  
   provideLoaderTiming(info) {
     const infoData = { id: info.id };
     if (info.type !== "end") {
       infoData.loader = info.loaderName;
+      // loaderContext中的this.resourcePath
       infoData.name = info.module;
     }
 
