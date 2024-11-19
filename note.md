@@ -2,7 +2,7 @@
 
 已知`/xxx/node_modules/some-package/lib/index.css`只有几行css代码，但是根据输出的json发现`["mini-css-extract-plugin", "css-loader", "postcss-loader"]`处理了 8951ms
 
- - webpack内部处理模块是由异步队列并发处理的，因此在`mini-css-extract-plugin`中遇到异步工作时，会先处理队列中剩余的所有任务）
+ - webpack内部处理模块是由异步队列并发处理的，因此在`mini-css-extract-plugin`中遇到异步工作时，会先处理队列中剩余的所有任务，没有减掉并发处理的模块耗时）
  - 此外`mini-css-extract-plugin`内部创建了一个`子compiler`来编译css，因此也存在一定开销
 
 
@@ -51,7 +51,7 @@
 
 ### 问题二：同一个资源会存在多次css-loader处理？
 
-如：`["mini-css-extract-plugin","css-loader","postcss-loader"]`, `["css-loader","postcss-loader"]`
+如：`["mini-css-extract-plugin","css-loader"]`, `["css-loader"]`
 
 `mini-css-extract-plugin`内部:
 
